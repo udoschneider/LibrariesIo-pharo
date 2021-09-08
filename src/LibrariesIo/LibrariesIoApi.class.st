@@ -2,16 +2,19 @@ Class {
 	#name : #LibrariesIoApi,
 	#superclass : #Object,
 	#instVars : [
-		'client',
-		'apiKey',
-		'requests',
-		'cache'
+		'api'
 	],
 	#classInstVars : [
 		'Current'
 	],
 	#category : #LibrariesIo
 }
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> baseUrl [
+
+	^ 'https://libraries.io/api' asUrl
+]
 
 { #category : #accessing }
 LibrariesIoApi class >> current [
@@ -21,23 +24,114 @@ LibrariesIoApi class >> current [
 		  Current := self new ]
 ]
 
-{ #category : #examples }
-LibrariesIoApi class >> examplePlatforms [
+{ #category : #'api definition' }
+LibrariesIoApi class >> defineApi [
 
+	^ CoffeeCupApi baseUrl: self baseUrl do: [ :api | 
+		  api
+			  title: 'API for Libraries.io';
+			  description: '# Rate limit
 
-	^ self current platforms inspect
+All requests are subject to a 60/request/minute rate limit based on your `api_key`, any further requests within that timeframe will result in a 429 response.
+
+# Pagination
+
+All requests that return multiple results can be paginated using the `page` and `per_page` query parameters. 
+';
+			  url: 'https://libraries.io/api';
+			  parameter: #api_key do: [ :param | 
+				  param
+					  description:
+						  'All API requests must include `api_key` parameter, get your api key from your [account page](https://libraries.io/account) , all examples on this page include your API key.';
+					  required: true ];
+			  parameter: #page
+			  do: [ :param | param description: 'page (default 1)' ];
+			  parameter: #per_page do: [ :param | 
+			  param description:
+				  'results per page (default is `30`, max is `100`)' ].
+		  self definePlatformsEndpoint: api.
+		  self definePlatformNamespace: api ]
+]
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> definePlatformNamespace: api [
+
+	api namespace: #platform do: [ :platform | 
+		platform
+			title: 'Platform Namespace';
+			path: '{id}';
+			namespace: #project do: [ :project | 
+				project
+					title: 'Project Namespace';
+					path: '{id}'.
+				self defineProjectInformationEndpoint: project.
+				self defineProjectDependenciesEndpoint: project ] ]
+]
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> definePlatformsEndpoint: api [
+
+	api endpoint: #platforms do: [ :ep | 
+		ep
+		title: 'Platforms';
+			description: 'Get a list of supported package managers';
+			url: 'https://libraries.io/api#platforms' ]
+]
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> defineProjectDependenciesEndpoint: project [
+
+	^ project endpoint: #dependencies do: [ :dependencies | 
+		  dependencies
+		title: 'Project Dependencies';
+			  description:
+				  'Get a list of dependencies for a version of a project';
+				url: 'https://libraries.io/api#project-dependencies';
+			  path: '/{version}/dependencies';
+			  parameter: #version
+			  do: [ :version | version description: 'Project version' ] ]
+]
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> defineProjectDependentsEndpoint: project [
+
+	^ project endpoint: #dependencies do: [ :dependencies | 
+		  dependencies
+			  description:
+				  'Get packages that have at least one version that depends on a given project. ';
+			  path: '/{version}/dependents';
+			  parameter: #version
+			  do: [ :version | version description: 'Project version' ] ]
+]
+
+{ #category : #'api definition' }
+LibrariesIoApi class >> defineProjectInformationEndpoint: project [
+
+	project endpoint: #information do: [ :info | 
+		info
+			title: 'Project information';
+			description:
+				'Get information about a package and it''s versions"';
+			url: 'https://libraries.io/api#project';
+			path: '' ]
 ]
 
 { #category : #examples }
-LibrariesIoApi class >> exampleProject [
+LibrariesIoApi class >> exampleDocumentation [
 
-	^ (self current project: 'NPM' name: 'base62') inspect
+	^ self current api documentationString inspect
+]
+
+{ #category : #examples }
+LibrariesIoApi class >> examplePlatforms [
+
+	^ self current platforms inspect 
 ]
 
 { #category : #examples }
 LibrariesIoApi class >> exampleProjectContributors [
 
-	^ (self current projectContributors: 'NPM' name: 'base62')
+	^ (self current platform: 'NPM' projectContributors: 'base62')
 		  inspect
 ]
 
@@ -57,6 +151,12 @@ LibrariesIoApi class >> exampleProjectDependentRepositories [
 LibrariesIoApi class >> exampleProjectDependents [
 
 	^ (self current projectDependents: 'NPM' name: 'base62') inspect
+]
+
+{ #category : #examples }
+LibrariesIoApi class >> exampleProjectInformation [
+
+	^ (self current platform: 'NPM' projectInformation: 'base62') inspect
 ]
 
 { #category : #examples }
@@ -89,100 +189,61 @@ LibrariesIoApi class >> reset [
 	Current := nil.
 ]
 
-{ #category : #private }
-LibrariesIoApi >> apiGet: path [
-
-	^ self apiGet: path queries: Dictionary new
-]
-
-{ #category : #private }
-LibrariesIoApi >> apiGet: path queries: queries [
-
-	| response url |
-	url := self baseUrl / path & (#api_key -> self apiKey) & (#per_page -> 100).
-	url queryAddAll: queries.
-	^ self cacheAt: url ifAbsentPut: [ 
-		  response := self client
-			              url: url;
-			              execute;
-			              response.
-		  response isSuccess ifFalse: [ ^ Error signal: 'response contents' ].
-		  (response contentType matches: ZnMimeType applicationJson) 
-			  ifFalse: [ ^ Error signal: 'Wrong content type. JSON expected!' ].
-		  response ]
-]
-
 { #category : #accessing }
-LibrariesIoApi >> apiKey [
-
-	apiKey ifNil: [ Error signal: 'API key not set!' ].
-	^ apiKey 
+LibrariesIoApi >> api [
+	^ api
 ]
 
 { #category : #accessing }
 LibrariesIoApi >> apiKey: aString [
-apiKey := aString
-]
 
-{ #category : #private }
-LibrariesIoApi >> baseUrl [
-
-	^ 'https://libraries.io/api' asUrl
-]
-
-{ #category : #private }
-LibrariesIoApi >> cacheAt: key ifAbsentPut: aBlock [
-^aBlock value
-	"^ cache at: key ifAbsentPut: aBlock"
-]
-
-{ #category : #private }
-LibrariesIoApi >> client [
-
-	^ client := ZnClient new
-		            method: #GET;
-		            timeout: 120;
-		            yourself
+	api parameter: #api_key do: [ :param | 
+		param
+			required: true;
+			default: aString ]
 ]
 
 { #category : #initialization }
 LibrariesIoApi >> initialize [
 
 	super initialize.
-	requests := OrderedCollection new.
-	cache := TTLCache new
+	api := self class defineApi
 ]
 
 { #category : #api }
-LibrariesIoApi >> platforms [
-"Get a list of supported package managers. "
+LibrariesIoApi >> platform: platform projectContributors: project [
+
+	"Get users that have contributed to a given project."
+
 	| response reader |
-	response := self apiGet: 'platforms'.
+	response :=  ((api platform: platform) project: project) contributors.
 	reader := NeoJSONReader on: response entity readStream.
 	LioObject neoJsonMapping: reader.
-	^ reader nextAs: #ArrayOfPlatform
+	^ reader nextAs: #ArrayOfContributor
 ]
 
 { #category : #api }
-LibrariesIoApi >> project: platform name: name [
-"Get information about a package and its versions. "
+LibrariesIoApi >> platform: platform projectInformation: project [
+
+	"Get information about a package and its versions. "
+
 	| response reader |
-	response := self apiGet: platform , '/' , name.
+	response := ((api platform: platform) project: project) information.
 	reader := NeoJSONReader on: response entity readStream.
 	LioObject neoJsonMapping: reader.
 	^ reader nextAs: LioProject
 ]
 
 { #category : #api }
-LibrariesIoApi >> projectContributors: platform name: name [
+LibrariesIoApi >> platforms [
 
-	"Get users that have contributed to a given project."
+	"Get a list of supported package managers. "
 
 	| response reader |
-	response := self apiGet: platform , '/' , name , '/contributors'.
+	response := api platforms.
 	reader := NeoJSONReader on: response entity readStream.
 	LioObject neoJsonMapping: reader.
-	^ reader nextAs: #ArrayOfContributor
+	^ reader nextAs: #ArrayOfPlatform
 ]
 
 { #category : #api }
