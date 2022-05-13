@@ -16,14 +16,6 @@ LibrariesIoApi class >> baseUrl [
 	^ 'https://libraries.io/api' asUrl
 ]
 
-{ #category : #accessing }
-LibrariesIoApi class >> current [
-
-	^ Current ifNil: [ 
-		 
-		  Current := self new ]
-]
-
 { #category : #'api definition' }
 LibrariesIoApi class >> defineApi [
 
@@ -38,7 +30,7 @@ All requests are subject to a 60/request/minute rate limit based on your `api_ke
 
 All requests that return multiple results can be paginated using the `page` and `per_page` query parameters. 
 ';
-			  url: 'https://libraries.io/api';
+			  reference: 'https://libraries.io/api';
 			  parameter: #api_key do: [ :param | 
 				  param
 					  description:
@@ -73,9 +65,9 @@ LibrariesIoApi class >> definePlatformsEndpoint: api [
 
 	api endpoint: #platforms do: [ :ep | 
 		ep
-		title: 'Platforms';
+			title: 'Platforms';
 			description: 'Get a list of supported package managers';
-			url: 'https://libraries.io/api#platforms' ]
+			reference: 'https://libraries.io/api#platforms' ]
 ]
 
 { #category : #'api definition' }
@@ -83,10 +75,10 @@ LibrariesIoApi class >> defineProjectDependenciesEndpoint: project [
 
 	^ project endpoint: #dependencies do: [ :dependencies | 
 		  dependencies
-		title: 'Project Dependencies';
+			  title: 'Project Dependencies';
 			  description:
 				  'Get a list of dependencies for a version of a project';
-				url: 'https://libraries.io/api#project-dependencies';
+			  reference: 'https://libraries.io/api#project-dependencies';
 			  path: '/{version}/dependencies';
 			  parameter: #version
 			  do: [ :version | version description: 'Project version' ] ]
@@ -110,16 +102,15 @@ LibrariesIoApi class >> defineProjectInformationEndpoint: project [
 	project endpoint: #information do: [ :info | 
 		info
 			title: 'Project information';
-			description:
-				'Get information about a package and it''s versions"';
-			url: 'https://libraries.io/api#project';
+			description: 'Get information about a package and it''s versions';
+			reference: 'https://libraries.io/api#project';
 			path: '' ]
 ]
 
 { #category : #examples }
 LibrariesIoApi class >> exampleDocumentation [
 
-	^ self current api documentationString inspect
+	^ self new api documentationString inspect
 ]
 
 { #category : #examples }
@@ -181,12 +172,6 @@ LibrariesIoApi class >> exampleProjectSearch2 [
 LibrariesIoApi class >> exampleProjectSourceRank [
 
 	^ (self current projectSourceRank: 'NPM' name: 'base62') inspect
-]
-
-{ #category : #initialization }
-LibrariesIoApi class >> reset [
-
-	Current := nil.
 ]
 
 { #category : #accessing }
